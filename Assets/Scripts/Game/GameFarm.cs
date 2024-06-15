@@ -8,7 +8,7 @@ using UnityEngine;
 public class GameFarm : MonoBehaviour
 {
     [Tooltip("UI Farm untuk menampilkan jenis kartu preferensi farm")]
-    [SerializeField] TMP_Text preferTypeText;
+    [SerializeField] TMP_Text _preferTypeText;
 
     public Action OnCoinIncrease;
     public Action OnCoinDecrease;
@@ -42,6 +42,6 @@ public class GameFarm : MonoBehaviour
 
     public void SetPreferTypeCard(string text)
     {
-        preferTypeText.text = text;
+        _preferTypeText.text = text;
     }
 }

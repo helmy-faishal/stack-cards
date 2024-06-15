@@ -1,96 +1,96 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 public class MissionCard : Card
 {
-    Dictionary<CardType, int> missionTotalMap = new Dictionary<CardType, int>();
-
-    StackGroup targetGroup;
-    bool HasTarget => targetGroup != null && selectedCard != null;
+    Dictionary<CardType, int> _missionTotalMap = new Dictionary<CardType, int>();
 
     protected override void SetStart()
     {
         base.SetStart();
 
-        if (gameManager.mission == null )
+        if (m_GameManager.Mission == null)
         {
             Debug.LogError("Mission Manager not found!");
             return;
         }
 
-        missionTotalMap = gameManager.mission.MissionTotal;
-        acceptedCardMask = gameManager.mission.MissionMask;
+        _missionTotalMap = m_GameManager.Mission.MissionTotal;
+        m_AcceptedCard = _missionTotalMap.Keys.ToArray();
+        m_AcceptedCardMask = m_GameManager.Mission.MissionMask;
     }
 
-    protected override void HandleTriggerEnter(Collider2D collision)
+    protected override bool CanTriggered => true;
+
+    protected override void SetEndCardDragging(Card card)
     {
-        base.HandleTriggerEnter(collision);
-        SetTargetGroup();
-    }
+        base.SetEndCardDragging(card);
 
-    protected override void HandleTriggerStay(Collider2D collision)
-    {
-        base.HandleTriggerStay(collision);
-        SetTargetGroup();
-    }
-
-    protected override void HandleTriggerExit(Collider2D collision)
-    {
-        base.HandleTriggerExit(collision);
-        if (selectedCard == null)
-        {
-            targetGroup = null;
-        }
-    }
-
-    void SetTargetGroup()
-    {
-        if (selectedCard is not StackableCard) return;
-
-        StackableCard card = (StackableCard)selectedCard;
-
-        if (targetGroup == null)
-        {
-            targetGroup = card.group;
-        }
-    }
-
-    private void Update()
-    {
-        if (!HasTarget) return;
-        if (selectedCard.IsDragging) return;
         ProcessMission();
+    }
+
+    void ProcessTriggerCard()
+    {
+        if (!HasTriggeredCard) return;
+
+        List<Card> processedCard = new List<Card>();
+        var groupTrigger = m_TriggeredCard.GroupBy(card => card.CardType);
+        foreach (var group in groupTrigger)
+        {
+            StackGroup selectedGroup = null;
+            foreach (Card card in group)
+            {
+                if (card == null) continue;
+                if (card is not StackableCard stackableCard) continue;
+                if (selectedGroup == null)
+                {
+                    selectedGroup = stackableCard.Group;
+                    processedCard.Add(card);
+                    continue;
+                }
+
+                stackableCard.MergeGroup(selectedGroup);
+                selectedGroup = stackableCard.Group;
+            }
+        }
+        m_TriggeredCard = processedCard;
     }
 
     void ProcessMission()
     {
-        int needed = missionTotalMap[selectedCard.Type];
-        int available = targetGroup.TotalStack;
-
-        int remain = 0;
-        if (available < needed)
+        if (!HasTriggeredCard) return;
+        ProcessTriggerCard();
+        foreach (StackableCard card in m_TriggeredCard.ToArray().Cast<StackableCard>())
         {
-            remain = needed - available;
-            missionTotalMap[selectedCard.Type] = needed - available;
+            if (!_missionTotalMap.ContainsKey(card.CardType)) continue;
+            if (card == null) continue;
+
+            int needed = _missionTotalMap[card.CardType];
+            int available = card.Group.TotalStack;
+
+            int remain = 0;
+            if (available < needed)
+            {
+                remain = needed - available;
+                _missionTotalMap[card.CardType] = needed - available;
+            }
+            else
+            {
+                _missionTotalMap.Remove(card.CardType);
+                m_AcceptedCardMask = GameUtility.RemoveFromMask(m_AcceptedCardMask, card.CardType);
+            }
+
+            m_GameManager.Mission.OnMissionUpdate?.Invoke(card.CardType, remain);
+            card.Group.DecreaseCard(needed);
+            AudioManager.Instance?.PlaySFX("MissionUpdate");
+
+            if (_missionTotalMap.Count <= 0)
+            {
+                m_GameManager.Mission.OnMissionFinished?.Invoke();
+            }
         }
-        else
-        {
-            missionTotalMap.Remove(selectedCard.Type);
-            acceptedCardMask = GameUtility.RemoveFromMask(acceptedCardMask, selectedCard.Type);
-        }
-
-        gameManager.mission.OnMissionUpdate?.Invoke(selectedCard.Type, remain);
-        targetGroup.DecreaseCard(needed);
-        AudioManager.instance?.PlaySFX("MissionUpdate");
-
-        if (missionTotalMap.Count <= 0)
-        {
-            gameManager.mission.OnMissionFinished?.Invoke();
-        }
-
-        selectedCard = null;
-        targetGroup = null;
-
+        m_TriggeredCard.RemoveAll(card => card == null);
     }
 }

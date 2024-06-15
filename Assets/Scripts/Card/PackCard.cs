@@ -1,71 +1,84 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using static UnityEditor.Progress;
 
 public class PackCard : Card
 {
-    [Tooltip("Effect saat membuka kartu")]
-    [SerializeField] ParticleSystem openEffect;
+    [SerializeField] ParticleSystem _openEffect;
+    [SerializeField] float _openDelay = 2f;
+    bool _isOpeningPack;
 
-    [Tooltip("Waktu yang dibutuhkan untuk membuka kartu")]
-    [SerializeField] float openDelay = 2f;
+    PackCardDataSO _cardData;
 
-    [Tooltip("Prefab kartu yang akan dikeluarkan dari Pack")]
-    [SerializeField] GameObject[] packContents;
-
-    [Tooltip("Jumlah dari prefab yang dikeluarkan")]
-    [SerializeField] [Min(1)] int contentOutput = 1;
-
-    bool isOpeningPack;
     protected override void SetStart()
     {
-        base.SetStart();
-        if (gameManager != null)
+        if (CardDataSO is not PackCardDataSO)
         {
-            gameManager.control.OnCardPressed += OpenPack;
+            Debug.LogError("Card data is not type of PackCardDataSO");
+            return;
         }
 
-        openEffect.Stop();
+        base.SetStart();
+        _cardData = (PackCardDataSO)CardDataSO;
+
+        if (m_GameControl != null)
+        {
+            m_GameControl.OnSingleTapPressed += OpenPack;
+            m_GameControl.OnMultiTapPressed += OpenPack;
+        }
     }
 
     protected override void SetOnDestroy()
     {
         base.SetOnDestroy();
-        if (gameManager != null )
+        if (m_GameControl != null)
         {
-            gameManager.control.OnCardPressed -= OpenPack;
+            m_GameControl.OnSingleTapPressed -= OpenPack;
+            m_GameControl.OnMultiTapPressed -= OpenPack;
         }
-
-        gameManager.TotalPackCard -= 1;
     }
 
     void OpenPack(Card card)
     {
         if (card != this) return;
-        if (isOpeningPack) return;
-        if (contentOutput <= 0) return;
+        if (_isOpeningPack) return;
+        if (_cardData.ContentOutput <= 0) return;
 
         StartCoroutine(OpenPackCoroutine());
     }
 
     IEnumerator OpenPackCoroutine()
     {
-        isOpeningPack = true;
-        openEffect.Play();
+        _isOpeningPack = true;
+        _openEffect.Play();
 
-        yield return new WaitForSeconds(openDelay);
-        for (int i = 0; i < contentOutput; i++)
+        yield return new WaitForSeconds(_openDelay);
+        for (int i = 0; i < _cardData.ContentOutput; i++)
         {
-            Vector3 position = GameUtility.GetRandomScatterPosition(transform.position, 2f);
-            Instantiate(GetRandomContent(), position, Quaternion.identity);
+            GenerateContent();
         }
-        openEffect.Stop();
+        _openEffect.Stop();
         DestroyCard();
     }
 
-    GameObject GetRandomContent()
+    public override void DestroyCard()
     {
-        return packContents[Random.Range(0, packContents.Length)];
+        base.DestroyCard();
+        m_GameManager.TotalPackCard -= 1;
+    }
+
+    void GenerateContent()
+    {
+        Vector3 spawnPosition = GameUtility.GetRandomScatterPosition(transform.position, GameConfig.instance.MaxSpawnRadius);
+
+        CardDataSO selectedCard = GetRandomContent();
+
+        StackableCard card = GameFactory.instance.GetStackableCard(spawnPosition, MainTransform.parent, selectedCard.CardName);
+        card.CardDataSO = selectedCard;
+    }
+
+    CardDataSO GetRandomContent()
+    {
+        return _cardData.PackContent[Random.Range(0, _cardData.PackContent.Length)];
     }
 }

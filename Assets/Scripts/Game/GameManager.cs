@@ -9,78 +9,73 @@ using UnityEngine.UI;
 public class GameManager : MonoBehaviour
 {
     // Script-script yang mengatur game
-    public GameControl control;
-    public GameCardDestroyer destroyer;
-    public GameFarm farm;
-    public GameMission mission;
+    [Header("Game Script")]
+    public GameCardDestroyer Destroyer;
+    public GameFarm Farm;
+    public GameMission Mission;
 
     [Header("Boundaries")]
     [Tooltip("Referensi kartu yang digunakan dalam game")]
-    [SerializeField] GameObject cardReference;
-    Bounds bounds;
+    [SerializeField] GameObject _cardReference;
+    Bounds _bounds;
     public static Bounds PlayableBounds { get; private set; }
 
     [Header("End Panel UI")]
     // Objek yang terdapat dalam End Panel
-    [SerializeField] GameObject endPanel;
-    [SerializeField] Button menuButton;
-    [SerializeField] Button restartButton;
-    [SerializeField] TMP_Text infoText;
+    [SerializeField] GameObject _endPanel;
+    [SerializeField] Button _menuButton;
+    [SerializeField] Button _restartButton;
+    [SerializeField] TMP_Text _infoText;
 
     public int MinShopPrice { get; set; }
     public int TotalPackCard { get; set; }
 
     private void Start()
     {
-        if (control == null)
+        if (Destroyer == null)
         {
-            control = FindObjectOfType<GameControl>();
+            Destroyer = FindObjectOfType<GameCardDestroyer>();
         }
+        Destroyer.OnCardUpdate += CheckGameCondition;
 
-        if (destroyer == null)
+        if (Farm == null)
         {
-            destroyer = FindObjectOfType<GameCardDestroyer>();
+            Farm = FindObjectOfType<GameFarm>();
         }
-        destroyer.OnCardUpdate += CheckGameCondition;
+        Farm.OnCoinIncrease += CheckGameCondition;
+        Farm.OnCoinDecrease += CheckGameCondition;
 
-        if (farm == null)
+        if (Mission == null)
         {
-            farm = FindObjectOfType<GameFarm>();
+            Mission = FindObjectOfType<GameMission>();
         }
-        farm.OnCoinIncrease += CheckGameCondition;
-        farm.OnCoinDecrease += CheckGameCondition;
-
-        if (mission == null)
-        {
-            mission = FindObjectOfType<GameMission>();
-        }
-        mission.OnMissionFinished += () =>
+        Mission.OnMissionFinished += () =>
         {
             ShowEndPanel(true);
         };
 
         SetPlayableBoundaries();
-        PlayableBounds = bounds;
+        PlayableBounds = _bounds;
 
-        endPanel.SetActive(false);
-        menuButton.onClick.AddListener(() =>
+        _endPanel.SetActive(false);
+        _menuButton.onClick.AddListener(() =>
         {
             GameUtility.SwitchScene("MainMenu");
             Time.timeScale = 1f;
         });
-        restartButton.onClick.AddListener(() =>
+        _restartButton.onClick.AddListener(() =>
         {
             GameUtility.RestartScene();
             Time.timeScale = 1f;
         });
 
-        AudioManager.instance?.PlayMusic("Game");
+        AudioManager.Instance?.PlayMusic("Game");
     }
 
     // Mengecek kondisi apakah masih dapat melanjutkan permainan
     void CheckGameCondition()
     {
-        if (farm.TotalCoin < MinShopPrice && destroyer.TotalCard == 0 && TotalPackCard <= 0)
+        if (Farm.TotalCoin < MinShopPrice && Destroyer.TotalCard == 0 && TotalPackCard <= 0)
         {
             ShowEndPanel(false);
         }
@@ -88,7 +83,7 @@ public class GameManager : MonoBehaviour
 
     void ShowEndPanel(bool win)
     {
-        endPanel.SetActive(true);
+        _endPanel.SetActive(true);
         string text;
         if (win)
         {
@@ -99,7 +94,7 @@ public class GameManager : MonoBehaviour
             text = "<color=red>You Lose!</color>\r\nUnfortunately you run out of cards!";
         }
         
-        infoText.text = text;
+        _infoText.text = text;
         Time.timeScale = 0f;
     }
 
@@ -109,7 +104,7 @@ public class GameManager : MonoBehaviour
     {
         float cardWidth = 0;
         float cardHeight = 0;
-        foreach (Renderer render in cardReference.GetComponentsInChildren<Renderer>(true))
+        foreach (Renderer render in _cardReference.GetComponentsInChildren<Renderer>(true))
         {
             if (render.bounds.extents.x > cardWidth)
             {
@@ -130,16 +125,16 @@ public class GameManager : MonoBehaviour
         maxScreen.x -= cardWidth;
         maxScreen.y -= cardHeight;
 
-        bounds = new Bounds();
-        bounds.Encapsulate(minScreen);
-        bounds.Encapsulate(maxScreen);
+        _bounds = new Bounds();
+        _bounds.Encapsulate(minScreen);
+        _bounds.Encapsulate(maxScreen);
     }
 
     private void OnDrawGizmos()
     {
-        if (bounds != null)
+        if (_bounds != null)
         {
-            Gizmos.DrawWireCube(bounds.center, bounds.size);
+            Gizmos.DrawWireCube(_bounds.center, _bounds.size);
         }
     }
 }

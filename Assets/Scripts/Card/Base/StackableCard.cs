@@ -1,64 +1,118 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
+using Unity.VisualScripting;
 using UnityEngine;
 
-// Kelas dasar dari kartu yang dapat ditumpuk
 public class StackableCard : Card
 {
-    // Stack utama dari tumpukan kartu
-    [HideInInspector]
-    public StackGroup group;
+    public Vector3 CardOffset { get; set; }
+
+    public override Transform MainTransform => base.MainTransform.parent;
+
+    public StackGroup Group;
 
     protected override void SetStart()
     {
         base.SetStart();
-        group = GetComponentInParent<StackGroup>();
+        Group = GetComponentInParent<StackGroup>();
+        Group.AddCard(this);
+        m_GameControl.OnMultiTapPressed += RemoveFromStack;
         OnStopDragging += CombineStackableCard;
+    }
+
+    protected virtual void RemoveFromStack(Card card)
+    {
+        if (card != this) return;
+        if (card is not StackableCard) return;
+        if (Group.TotalStack <= 1) return;
+
+        Vector3 spawnPosition = GameUtility.GetRandomScatterPosition(Group.transform.position,GameConfig.instance.MaxSpawnRadius);
+        StackGroup newGroup = GameFactory.instance.GetEmptyStackGroup(spawnPosition, MainTransform.parent, CardDataSO.CardName);
+
+        Group.RemoveCard(this);
+        newGroup.AddCard(this);
+    }
+
+    public void RemoveFromStack()
+    {
+        RemoveFromStack(this);
     }
 
     protected virtual void CombineStackableCard()
     {
-        if (selectedCard == null) return;
+        if (!HasTriggeredCard) return;
 
-        StackGroup acceptedGroup = selectedCard.GetComponentInParent<StackGroup>();
+        StackGroup acceptedGroup = null;
+        foreach (Card card in m_TriggeredCard)
+        {
+            if (card is not StackableCard) continue;
+            if (!card.CanCombineCard) continue;
+
+            acceptedGroup = card.GetComponentInParent<StackGroup>();
+            break;
+        }
 
         if (acceptedGroup == null) return;
+        m_TriggeredCard.Clear();
 
-        if (group.TotalStack > acceptedGroup.TotalStack)
+        MergeGroup(acceptedGroup);
+    }
+
+    public void MergeGroup(StackGroup otherGroup)
+    {
+        if (otherGroup == null) return;
+        if (otherGroup == Group) return;
+
+        if (otherGroup.TotalStack < Group.TotalStack)
         {
-            MoveStackGroup(acceptedGroup, group);
+            MoveStackGroup(otherGroup, Group);
         }
         else
         {
-            MoveStackGroup(group, acceptedGroup);
+            MoveStackGroup(Group, otherGroup);
         }
     }
 
     void MoveStackGroup(StackGroup fromGroup, StackGroup toGroup)
     {
-        foreach (StackableCard card in fromGroup.cards)
+        foreach (StackableCard card in fromGroup.Cards)
         {
-            card.group = toGroup;
-            card.transform.position = toGroup.transform.position;
-            card.transform.parent = toGroup.transform;
             toGroup.AddCard(card);
         }
 
-        fromGroup.cards.Clear();
+        fromGroup.Cards.Clear();
         Destroy(fromGroup.gameObject);
+    }
+
+    public override void ChangeCardPosition(Vector3 position)
+    {
+        MainTransform.position = Group.GetPositionInBounds(position);
+        Group.OnStackableCardMove?.Invoke();
+    }
+
+    public void ChangeSortingLayerOnMove()
+    {
+        ChangeSortingLayer(true);
+    }
+
+    protected override void SetEndCardDragging(Card card)
+    {
+        base.SetEndCardDragging(card);
+        ChangeSortingLayer(false);
     }
 
     public override void DestroyCard()
     {
         OnCardDestroyed?.Invoke(this);
 
-        if (group.cards.Count <= 1)
+        if (Group.Cards.Count <= 1)
         {
             base.DestroyCard();
         }
         else
         {
-            group.RemoveCard(this);
+            Group.RemoveCard(this);
             Destroy(gameObject);
         }
     }

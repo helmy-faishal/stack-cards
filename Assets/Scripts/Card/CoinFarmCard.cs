@@ -5,31 +5,20 @@ using UnityEngine.UI;
 
 public class CoinFarmCard : Card
 {
-    [Tooltip("Prefab dari Coin Card")]
-    [SerializeField] GameObject coinCardPrefab;
+    float _currentProduceTime;
+    float _currentPreferedTime;
+    CardType _preferedType;
 
-    [Tooltip("Maks radius penyebaran coin yang dihasilkan")]
-    [SerializeField][Min(0)] float maxSpawnRadius = 2f;
+    Card _selectedCard;
+    bool IsProducing => _selectedCard != null;
 
-    [Tooltip("Waktu yang dibutuhkan untuk memproduksi koin")]
-    [SerializeField] float produceCoinTime = 1f;
-    float currentProduceTime;
-
-    [Tooltip("Image UI untuk menampilkan progress")]
-    [SerializeField] Image fillImage;
-
-    [Tooltip("Waktu yang dibutuhkan untuk memperbarui preferensi kartu")]
-    [SerializeField] float preferedCardTime = 120f;
-    float currentPreferedTime;
-    CardType preferedType;
-
-    bool IsProducing => selectedCard != null;
-
-    float ProduceTimeMultiplier => IsProducing && selectedCard.Type == preferedType ? 0.5f : 1f;
+    float ProduceTimeMultiplier => IsProducing && _selectedCard.CardType == _preferedType ? 0.5f : 1f;
+    [SerializeField] Image _fillImage;
 
     protected override void SetStart()
     {
         base.SetStart();
+
         SetFillImage(0f);
         GetPreferedCardType();
     }
@@ -42,68 +31,113 @@ public class CoinFarmCard : Card
 
     void SetPreferedCard()
     {
-        currentPreferedTime += Time.deltaTime;
+        _currentPreferedTime += Time.deltaTime;
 
-        if (currentPreferedTime >= preferedCardTime)
+        if (_currentPreferedTime >= GameConfig.instance.PreferedCardTime)
         {
             GetPreferedCardType();
-            currentPreferedTime = 0f;
+            _currentPreferedTime = 0f;
         }
     }
 
     void GetPreferedCardType()
     {
-        preferedType = acceptedCard[Random.Range(0, acceptedCard.Length)];
-        gameManager.farm.SetPreferTypeCard($"Coin Farm prefer {preferedType} card");
+        _preferedType = m_AcceptedCard[Random.Range(0, m_AcceptedCard.Length)];
+        m_GameManager.Farm.SetPreferTypeCard($"Coin Farm prefer {_preferedType} card");
     }
 
     void ProduceCoin()
     {
-        if (!IsProducing) return;
-        currentProduceTime += Time.deltaTime;
-
-        if (currentProduceTime >= produceCoinTime * ProduceTimeMultiplier)
+        if (!IsProducing)
         {
-            currentProduceTime = 0f;
+            if (!CanCombineCard)
+            {
+                CanCombineCard = true;
+                SetOrderInLayer(0);
+            }
+            return;
+        }
+        _currentProduceTime += Time.deltaTime;
+
+        if (_currentProduceTime >= GameConfig.instance.ProduceCoinTime * ProduceTimeMultiplier)
+        {
+            _currentProduceTime = 0f;
             GenerateCoin();
         }
 
-        SetFillImage(currentProduceTime);
-    }
-
-    protected override void HandleTriggerEnter(Collider2D collision)
-    {
-        SetFarmTrigger(collision);
-    }
-
-    protected override void HandleTriggerStay(Collider2D collision)
-    {
-        SetFarmTrigger(collision);
-    }
-
-    void SetFarmTrigger(Collider2D collision)
-    {
-        Card card = GetTriggeredCard(collision);
-
-        if (card == null) return;
-
-        if (card.Type == preferedType)
-        {
-            selectedCard = card;
-            return;
-        }
-
-        selectedCard = card;
+        SetFillImage(_currentProduceTime);
     }
 
     void SetFillImage(float value)
     {
-        fillImage.fillAmount = value;
+        _fillImage.fillAmount = value;
     }
 
     void GenerateCoin()
     {
-        Vector3 spawnPosition = GameUtility.GetRandomScatterPosition(transform.position, maxSpawnRadius);
-        Instantiate(coinCardPrefab, spawnPosition, Quaternion.identity);
+        Vector3 spawnPosition = GameUtility.GetRandomScatterPosition(transform.position, GameConfig.instance.MaxSpawnRadius);
+
+        CardDataSO cardData = CardConfig.instance.GetCardData(CardType.Coin);
+
+        StackableCard card = GameFactory.instance.GetStackableCard(spawnPosition, MainTransform.parent, cardData.CardName);
+        card.Render.sortingLayerID = SortingLayer.NameToID("Coin");
+        card.CardDataSO = cardData;
+        m_GameManager.Farm.OnCoinIncrease?.Invoke();
+        card.OnCardDestroyed += (_) =>
+        {
+            m_GameManager.Farm.OnCoinDecrease?.Invoke();
+        };
+    }
+
+    protected override bool CanTriggered => true;
+
+    protected override void SetEndCardDragging(Card card)
+    {
+        base.SetEndCardDragging(card);
+
+        CheckCardTriggered();
+    }
+
+    void CheckCardTriggered()
+    {
+        if (m_TriggeredCard.Count <= 0)
+        {
+            if (_selectedCard != null)
+            {
+                _selectedCard.CanCombineCard = true;
+                this.CanCombineCard = true;
+            }
+            _selectedCard = null;
+            SetOrderInLayer(0);
+            return;
+        }
+
+        SetOrderInLayer(-1);
+        foreach (Card card in m_TriggeredCard)
+        {
+            if (_selectedCard == card)
+            {
+                _selectedCard.ChangeCardPosition(transform.position);
+                break;
+            }
+
+            if (card is StackableCard stackableCard)
+            {
+                stackableCard.RemoveFromStack();
+                _selectedCard = stackableCard;
+                stackableCard.Group.transform.position = transform.position;
+            }
+            else
+            {
+                _selectedCard = card;
+                card.transform.position = transform.position;
+            }
+
+            m_TriggeredCard.Clear();
+            m_TriggeredCard.Add(card);
+            _selectedCard.CanCombineCard = false;
+            this.CanCombineCard = false;
+            break;
+        }
     }
 }

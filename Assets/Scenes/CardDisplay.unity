@@ -2513,10 +2513,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 600fe10ae97f4cd41a0b5b8444c63223, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  nextButton: {fileID: 2092723498}
-  backButton: {fileID: 193699859}
-  closeButton: {fileID: 196253217}
-  pagesParent: {fileID: 2041921104}
+  _nextButton: {fileID: 2092723498}
+  _backButton: {fileID: 193699859}
+  _closeButton: {fileID: 196253217}
+  _pagesParent: {fileID: 2041921104}
 --- !u!4 &1243900193
 Transform:
   m_ObjectHideFlags: 0

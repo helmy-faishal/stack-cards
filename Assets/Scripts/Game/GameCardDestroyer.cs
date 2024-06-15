@@ -10,63 +10,65 @@ public class GameCardDestroyer : MonoBehaviour
 {
     [Header("UI")]
     [Tooltip("UI untuk menampilkan timer")]
-    [SerializeField] Image timerFill;
+    [SerializeField] Image _timerFill;
 
     [Header("Effect")]
     [Tooltip("Effect yang dihasilkan saat kartu dihancurkan")]
-    [SerializeField] ParticleSystem destroyEffect;
+    [SerializeField] ParticleSystem _destroyEffect;
 
-    [Header("Card Destroyer")]
-    [Tooltip("Jeda waktu antar penghancuran kartu")]
-    [SerializeField] float destroyCardDelay = 1f;
-    private List<Card> cards = new List<Card>();
-    float currentTime;
+    private List<Card> _cards = new List<Card>();
+    float _currentTime;
 
-    public int TotalCard => cards.Count;
+    public int TotalCard => _cards.Count;
 
     public Action OnCardUpdate;
 
     private void Start()
     {
-        currentTime = destroyCardDelay;
+        _currentTime = GameConfig.instance.DestroyCardDelay;
     }
 
     public void AddCard(Card card)
     {
-        cards.Add(card);
+        _cards.Add(card);
         OnCardUpdate?.Invoke();
     }
 
     public void RemoveCard(Card card)
     {
-        cards.Remove(card);
+        _cards.Remove(card);
         OnCardUpdate?.Invoke();
     }
 
     private void Update()
     {
-        currentTime -= Time.deltaTime;
-        SetTimerFill(currentTime);
+        _currentTime -= Time.deltaTime;
+        SetTimerFill(_currentTime/GameConfig.instance.DestroyCardDelay);
 
-        if (currentTime < 0f)
+        if (_currentTime < 0f)
         {
             SystemDestroyCard();
-            currentTime = destroyCardDelay;
+            _currentTime = GameConfig.instance.DestroyCardDelay;
         }
     }
 
     void SystemDestroyCard()
     {
-        if (cards.Count > 0f)
+        if (_cards.Count <= 0f) return;
+        try
         {
-            int index = Random.Range(0, cards.Count);
-            Card card = cards[index];
+            int index = Random.Range(0, _cards.Count);
+            Card card = _cards[index];
 
-            Instantiate(destroyEffect, card.transform.position, Quaternion.identity);
-            AudioManager.instance?.PlaySFX("CardDestroy");
+            Instantiate(_destroyEffect, card.transform.position, Quaternion.identity);
+            AudioManager.Instance?.PlaySFX("CardDestroy");
 
             RemoveCard(card);
             card.DestroyCard();
+        }
+        catch (Exception)
+        {
+            return;
         }
     }
 
@@ -74,13 +76,13 @@ public class GameCardDestroyer : MonoBehaviour
     {
         if (fill < 0.5f)
         {
-            timerFill.color = Color.red;
+            _timerFill.color = Color.red;
         }
         else
         {
-            timerFill.color = Color.green;
+            _timerFill.color = Color.green;
         }
 
-        timerFill.fillAmount = fill;
+        _timerFill.fillAmount = fill;
     }
 }

@@ -174,20 +174,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 506f568eb554efb41924e6bdc24ed1d8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  musicSource: {fileID: 4997234366826921048}
-  sfxSource: {fileID: 4595682406737441605}
-  musicSounds:
-  - soundName: MainMenu
-    clip: {fileID: 8300000, guid: 7016e46ba8daeab46bbb0394264075dc, type: 3}
+  _musicSource: {fileID: 4997234366826921048}
+  _sfxSource: {fileID: 4595682406737441605}
+  _musicSounds:
   - soundName: Game
     clip: {fileID: 8300000, guid: d1b089747ed5891409fbbebce768be21, type: 3}
-  sfxSounds:
-  - soundName: CardDestroy
-    clip: {fileID: 8300000, guid: 0b5bee05882fe9c418a2420340f4a09b, type: 3}
-  - soundName: MissionUpdate
-    clip: {fileID: 8300000, guid: c170988fe43115a47b42dfb61e691723, type: 3}
+  - soundName: MainMenu
+    clip: {fileID: 8300000, guid: 7016e46ba8daeab46bbb0394264075dc, type: 3}
+  _sfxSounds:
   - soundName: Click
     clip: {fileID: 8300000, guid: b7387db0cefc91445a4172fd54abe38c, type: 3}
+  - soundName: MissionUpdate
+    clip: {fileID: 8300000, guid: c170988fe43115a47b42dfb61e691723, type: 3}
+  - soundName: CardDestroy
+    clip: {fileID: 8300000, guid: 0b5bee05882fe9c418a2420340f4a09b, type: 3}
 --- !u!1 &6645602345791987538
 GameObject:
   m_ObjectHideFlags: 0

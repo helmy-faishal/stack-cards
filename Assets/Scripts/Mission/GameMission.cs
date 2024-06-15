@@ -8,40 +8,40 @@ using Random = UnityEngine.Random;
 public class GameMission : MonoBehaviour
 {
     [Header("UI")]
-    [SerializeField] GameObject missionPanel;
-    [SerializeField] Button missionButton;
-    [SerializeField] Button closeButton;
+    [SerializeField] GameObject _missionPanel;
+    [SerializeField] Button _missionButton;
+    [SerializeField] Button _closeButton;
 
     [Header("Mission UI")]
-    [SerializeField] Transform scrollContent;
-    [SerializeField] MissionItem missionItemPrefab;
+    [SerializeField] Transform _scrollContent;
+    [SerializeField] MissionItem _missionItemPrefab;
 
     [Header("Mission Data")]
-    [SerializeField] MissionDataSO[] missionDataSO;
-    Dictionary<CardType, string> missionDescriptionMap = new Dictionary<CardType, string>();
-    Dictionary<CardType, int> missionTotalMap = new Dictionary<CardType, int>();
-    public Dictionary<CardType, int> MissionTotal => missionTotalMap;
-    int missionMask;
-    public int MissionMask => missionMask;
+    [SerializeField] MissionDataSO[] _missionDataSO;
+    Dictionary<CardType, string> _missionDescriptionMap = new Dictionary<CardType, string>();
+    Dictionary<CardType, int> _missionTotalMap = new Dictionary<CardType, int>();
+    public Dictionary<CardType, int> MissionTotal => _missionTotalMap;
+    int _missionMask;
+    public int MissionMask => _missionMask;
 
-    MissionDetail[] selectedMission;
-    public MissionDetail[] SelectedMission => selectedMission;
+    MissionDetail[] _selectedMission;
+    public MissionDetail[] SelectedMission => _selectedMission;
 
     public Action<CardType, int> OnMissionUpdate;
     public Action OnMissionFinished;
 
     private void Awake()
     {
-        selectedMission = GetRandomMission();
-        SetMissionMapping(selectedMission);
+        _selectedMission = GetRandomMission();
+        SetMissionMapping(_selectedMission);
     }
 
     public MissionDetail[] GetRandomMission()
     {
-        if (missionDataSO == null || missionDataSO.Length == 0) return null;
+        if (_missionDataSO == null || _missionDataSO.Length == 0) return null;
 
-        int index = Random.Range(0, missionDataSO.Length);
-        return missionDataSO[index].MissionDetails;
+        int index = Random.Range(0, _missionDataSO.Length);
+        return _missionDataSO[index].MissionDetails;
     }
 
     public void SetMissionMapping(MissionDetail[] missions)
@@ -50,20 +50,20 @@ public class GameMission : MonoBehaviour
         {
             return;
         }
-        missionMask = 0;
+        _missionMask = 0;
         for (int i = 0; i < missions.Length; i++)
         {
             MissionDetail mission = missions[i];
-            missionMask |= GameUtility.GetCardTypeMask(mission.MissionCardType);
+            _missionMask |= GameUtility.GetCardTypeMask(mission.MissionCardType);
 
-            if (missionTotalMap.ContainsKey(mission.MissionCardType))
+            if (_missionTotalMap.ContainsKey(mission.MissionCardType))
             {
-                missionTotalMap[mission.MissionCardType] += mission.CollectedCard;
+                _missionTotalMap[mission.MissionCardType] += mission.CollectedCard;
             }
             else
             {
-                missionTotalMap.Add(mission.MissionCardType, mission.CollectedCard);
-                missionDescriptionMap.Add(mission.MissionCardType, mission.Description);
+                _missionTotalMap.Add(mission.MissionCardType, mission.CollectedCard);
+                _missionDescriptionMap.Add(mission.MissionCardType, mission.Description);
             }
         }
     }
@@ -73,36 +73,36 @@ public class GameMission : MonoBehaviour
         SetUI();
         SetMissionUI();
 
-        missionButton.onClick?.Invoke();
+        _missionButton.onClick?.Invoke();
     }
 
     void SetUI()
     {
-        missionButton.onClick.AddListener(OpenMissionPanel);
-        closeButton.onClick.AddListener(CloseMissionPanel);
+        _missionButton.onClick.AddListener(OpenMissionPanel);
+        _closeButton.onClick.AddListener(CloseMissionPanel);
     }
 
     void OpenMissionPanel()
     {
-        missionPanel.SetActive(true);
+        _missionPanel.SetActive(true);
         Time.timeScale = 0f;
     }
 
     void CloseMissionPanel()
     {
-        missionPanel.SetActive(false);
+        _missionPanel.SetActive(false);
         Time.timeScale = 1f;
     }
 
     void SetMissionUI()
     {
-        foreach (CardType cardType in missionDescriptionMap.Keys)
+        foreach (CardType cardType in _missionDescriptionMap.Keys)
         {
-            MissionItem item = Instantiate(missionItemPrefab, scrollContent);
-            item.SetDescription(missionDescriptionMap[cardType]);
+            MissionItem item = Instantiate(_missionItemPrefab, _scrollContent);
+            item.SetDescription(_missionDescriptionMap[cardType]);
 
             CardType type = cardType;
-            int total = missionTotalMap[cardType];
+            int total = _missionTotalMap[cardType];
             item.InitTotalCollected(total);
 
             OnMissionUpdate += (CardType updateType, int remainValue) =>

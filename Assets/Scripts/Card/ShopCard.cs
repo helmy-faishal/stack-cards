@@ -6,127 +6,110 @@ using Random = UnityEngine.Random;
 
 public class ShopCard : Card
 {
-    [Tooltip("Apakah shop akan memprioritaskan barang dengan harga tertinggi?")]
-    [SerializeField] bool isPrioritzeHighestPrize = true;
+    [SerializeField] bool _isPrioritzeHighestPrize = true;
     [System.Serializable]
     class ShopItem
     {
         [Min(1)] public int price = 1;
-        public GameObject item;
+        public PackCardDataSO pack;
     }
-    [Tooltip("Item-item yang dapat ditukar dengan koin")]
-    [SerializeField] ShopItem[] shopItems;
+    [SerializeField] ShopItem[] _shopItems;
 
-    Dictionary<int, List<ShopItem>> shopItemMap;
-    int[] prices;
-    int minPrice;
+    Dictionary<int, List<ShopItem>> _shopItemMap;
+    int[] _prices;
+    int _minPrice;
 
-    StackGroup targetGroup;
-    bool HasTarget => targetGroup != null && selectedCard != null;
+    StackableCard _selectedCard;
 
-    bool isProcessBuy;
+    bool _isProcessBuy;
 
     protected override void SetStart()
     {
         base.SetStart();
         ShopItemMapping();
-        gameManager.MinShopPrice = minPrice;
+        m_GameManager.MinShopPrice = _minPrice;
     }
 
     void ShopItemMapping()
     {
-        shopItemMap = new Dictionary<int, List<ShopItem>>();
+        _shopItemMap = new Dictionary<int, List<ShopItem>>();
 
-        foreach (ShopItem item in shopItems)
+        foreach (ShopItem item in _shopItems)
         {
-            if (shopItemMap.ContainsKey(item.price))
+            if (_shopItemMap.ContainsKey(item.price))
             {
-                shopItemMap[item.price].Add(item);
+                _shopItemMap[item.price].Add(item);
             }
             else
             {
-                shopItemMap[item.price] = new List<ShopItem>() { item };
+                _shopItemMap[item.price] = new List<ShopItem>() { item };
             }
         }
 
-        prices = new int[shopItemMap.Keys.Count];
-        shopItemMap.Keys.CopyTo(prices, 0);
-        
-        Array.Sort(prices);
-        minPrice = prices[0];
-        if (isPrioritzeHighestPrize)
+        _prices = new int[_shopItemMap.Keys.Count];
+        _shopItemMap.Keys.CopyTo(_prices, 0);
+
+        Array.Sort(_prices);
+        _minPrice = _prices[0];
+        if (_isPrioritzeHighestPrize)
         {
-            Array.Reverse(prices);
+            Array.Reverse(_prices);
         }
     }
 
-    protected override void HandleTriggerEnter(Collider2D collision)
-    {
-        base.HandleTriggerEnter(collision);
+    protected override bool CanTriggered => true;
 
-        SetTargetGroup();
+    protected override void SetEndCardDragging(Card card)
+    {
+        base.SetEndCardDragging(card);
+
+        ProcessTrigger();
     }
 
-    protected override void HandleTriggerStay(Collider2D collision)
+    void ProcessTrigger()
     {
-        base.HandleTriggerStay(collision);
+        if (!HasTriggeredCard) return;
 
-        SetTargetGroup();
-    }
-
-    void SetTargetGroup()
-    {
-        if (selectedCard is not StackableCard) return;
-
-        StackableCard card = (StackableCard)selectedCard;
-        if (targetGroup == null)
+        List<Card> processedCard = new List<Card>();
+        StackGroup selectedGroup = null;
+        foreach (Card card in m_TriggeredCard)
         {
-            if (card.group.TotalStack < minPrice) return;
+            if (card == null) continue;
+            if (card is not StackableCard stackableCard) continue;
+            if (selectedGroup == null)
+            {
+                selectedGroup = stackableCard.Group;
+                processedCard.Add(card);
+                continue;
+            }
 
-            targetGroup = card.group;
+            stackableCard.MergeGroup(selectedGroup);
+            selectedGroup = stackableCard.Group;
         }
-
-        if (card.group.TotalStack > targetGroup.TotalStack)
-        {
-            targetGroup = card.group;
-        }
+        m_TriggeredCard = processedCard;
+        ProcessBuy();
     }
 
-    protected override void HandleTriggerExit(Collider2D collision)
+    void ProcessBuy()
     {
-        base.HandleTriggerExit(collision);
-        if (selectedCard == null)
-        {
-            targetGroup = null;
-        }
-    }
+        if(!HasTriggeredCard) return;
+        if (_isProcessBuy) return;
 
-    private void Update()
-    {
-        if (!HasTarget) return;
-        if (isProcessBuy) return;
+        _isProcessBuy = true;
 
-        BuyItem();
-    }
+        _selectedCard = (StackableCard)m_TriggeredCard[0];
 
-    void BuyItem()
-    {
-        if (!HasTarget) return;
-        if (selectedCard.IsDragging) return;
-
-        isProcessBuy = true;
-
-        int budget = targetGroup.TotalStack;
+        int budget = _selectedCard.Group.TotalStack;
         List<ShopItem> itemPurchase = new List<ShopItem>();
 
-        foreach (int price in prices)
+        foreach (int price in _prices)
         {
             int total = budget / price;
             budget %= price;
 
             for (int i = 0; i < total; i++)
             {
-                List<ShopItem> item = shopItemMap[price];
+                List<ShopItem> item = _shopItemMap[price];
 
                 if (item.Count > 1)
                 {
@@ -139,26 +122,28 @@ public class ShopCard : Card
             }
         }
 
-        gameManager.TotalPackCard += itemPurchase.Count;
+        //m_GameManager.TotalPackCard += itemPurchase.Count;
         GenerateItem(itemPurchase);
         DecreaseStack(budget);
-        isProcessBuy = false;
+        _isProcessBuy = false;
     }
 
     void GenerateItem(List<ShopItem> itemPurchase)
     {
         foreach (var item in itemPurchase)
         {
-            Vector3 position = GameUtility.GetRandomScatterPosition(transform.position, 2f);
-            Instantiate(item.item, position, Quaternion.identity);
+            Vector3 position = GameUtility.GetRandomScatterPosition(transform.position, GameConfig.instance.MaxSpawnRadius);
+            PackCard packCard = GameFactory.instance.GetPackCard(position, MainTransform.parent, item.pack.CardName);
+            packCard.CardDataSO = item.pack;
+            m_GameManager.TotalPackCard += 1;
         }
     }
 
     void DecreaseStack(int remainBudget)
     {
-        int totalDecrease = targetGroup.TotalStack - remainBudget;
-        targetGroup.DecreaseCard(totalDecrease);
+        int totalDecrease = _selectedCard.Group.TotalStack - remainBudget;
+        _selectedCard.Group.DecreaseCard(totalDecrease);
 
-        targetGroup = null;
+        _selectedCard = null;
     }
 }

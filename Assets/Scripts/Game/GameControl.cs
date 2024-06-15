@@ -2,127 +2,107 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.Interactions;
 
-// Script yang mengatur kontrol dalam permainan
 public class GameControl : MonoBehaviour
 {
-    [Tooltip("Waktu minimal yang diperlukan untuk membuat kondisi kartu dari ditekan menjadi dapat digeser")]
-    [SerializeField] float pressThreshold = 0.2f;
-    float pressTime = 0f;
+    PlayerInputAction _action;
+    InputAction _pressInput;
+    InputAction _moveInput;
 
-    public Action<Card> OnCardPressed;
-    public Action<Card> OnCardStartDrag;
-    public Action<Card> OnCardEndDrag;
+    Card _target;
+    public bool HasTarget => _target != null;
 
-    Camera cam;
+    public Action<Card> OnSingleTapPressed;
+    public Action<Card> OnMultiTapPressed;
+    public Action<Card> OnStartDrag;
+    public Action<Card> OnEndDrag;
 
-    bool isPressed;
-    bool isDragging;
-    Card target;
-
-    private void Awake()
+    private void OnEnable()
     {
-        cam = Camera.main;
+        _action = new PlayerInputAction();
+        _action.Player.Enable();
+
+        _pressInput = _action.Player.Press;
+        _moveInput = _action.Player.Move;
     }
 
-    private void Update()
+    private void OnDisable()
     {
-        HandleInput();
+        _action.Player.Disable();
     }
 
-    void HandleInput()
+    private void Start()
     {
-        ButtonPressed();
-        ButtonReleased();
+        _pressInput.performed += InputPressPerformed;
+        _pressInput.canceled += InputPressCanceled;
     }
 
-    void ButtonPressed()
+    void InputPressPerformed(InputAction.CallbackContext context)
     {
-        if (Input.GetMouseButtonDown(0))
+        SetPressedTarget();
+
+        if (!HasTarget) return;
+
+        if (context.interaction is TapInteraction)
         {
-            Ray ray = cam.ScreenPointToRay(Input.mousePosition);
-            foreach (RaycastHit2D hit in Physics2D.RaycastAll(ray.origin, ray.direction))
-            {
-                if (hit.transform.TryGetComponent(out Card card))
-                {
-                    isPressed = true;
-                    target = card;
-                    AudioManager.instance?.PlaySFX("Click");
-                    break;
-                }
-            }
+            OnSingleTapPressed?.Invoke(_target);
+            _target = null;
+        }
+
+        if (context.interaction is MultiTapInteraction)
+        {
+            OnMultiTapPressed?.Invoke(_target);
+            _target = null;
+        }
+
+        if (context.interaction is HoldInteraction)
+        {
+            OnStartDrag?.Invoke(_target);
         }
     }
 
-    void ButtonReleased()
+    void InputPressCanceled(InputAction.CallbackContext context)
     {
-        if (Input.GetMouseButtonUp(0))
+        if (!HasTarget) return;
+
+        if (context.interaction is HoldInteraction)
         {
-            if (target == null) return;
+            OnEndDrag?.Invoke(_target);
+        }
 
-            if (isPressed)
+        _target = null;
+    }
+
+    void SetPressedTarget()
+    {
+        Ray ray = Camera.main.ScreenPointToRay(_moveInput.ReadValue<Vector2>());
+
+        float renderValue = Mathf.NegativeInfinity;
+        foreach (RaycastHit2D hit in Physics2D.RaycastAll(ray.origin, ray.direction))
+        {
+            if (!hit.transform.TryGetComponent(out Card card)) continue;
+            int layerValue = SortingLayer.GetLayerValueFromName(card.Render.sortingLayerName);
+
+            if (layerValue > renderValue)
             {
-                isPressed = false;
-                pressTime = 0f;
-                OnCardPressed?.Invoke(target);
+                renderValue = layerValue;
+                _target = card;
             }
-
-            if (isDragging)
-            {
-                OnCardEndDrag?.Invoke(target);
-                target.OnCardDestroyed -= (_) =>
-                {
-                    target = null;
-                    isDragging = false;
-                };
-
-                isDragging = false;
-                target.IsDragging = false;
-            }
-
-            target = null;
         }
     }
 
     private void LateUpdate()
     {
-        if (target == null)
-        {
-            if (isDragging || isPressed)
-            {
-                isPressed = false;
-                isDragging = false;
-            }
-        }
-
-        if (isPressed)
-        {
-            pressTime += Time.deltaTime;
-
-            if (pressTime > pressThreshold)
-            {
-                isDragging = true;
-                target.IsDragging = true;
-                OnCardStartDrag?.Invoke(target);
-
-                target.OnCardDestroyed += (_) =>
-                {
-                    target = null;
-                    isDragging = false;
-                };
-
-                pressTime = 0f;
-                isPressed = false;
-            }
-        }
-
-        if (isDragging)
-        {
-            Vector3 pos = cam.ScreenToWorldPoint(Input.mousePosition);
-            pos.z = 0;
-            target.MainTransform.position = GameUtility.ClampPointInBounds(GameManager.PlayableBounds, pos);
-        }
+        MoveControl();
     }
 
+    void MoveControl()
+    {
+        if (!HasTarget) return;
 
+        Vector2 position = Camera.main.ScreenToWorldPoint(_moveInput.ReadValue<Vector2>());
+        _target.ChangeCardPosition(position);
+    }
 }
