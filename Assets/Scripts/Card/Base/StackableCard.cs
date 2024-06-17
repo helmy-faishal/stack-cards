@@ -28,7 +28,7 @@ public class StackableCard : Card
         if (Group.TotalStack <= 1) return;
 
         Vector3 spawnPosition = GameUtility.GetRandomScatterPosition(Group.transform.position,GameConfig.instance.MaxSpawnRadius);
-        StackGroup newGroup = GameFactory.instance.GetEmptyStackGroup(spawnPosition, MainTransform.parent, CardDataSO.CardName);
+        StackGroup newGroup = GameCardSpawner.instance.GetEmptyStackGroup(spawnPosition, MainTransform.parent, CardDataSO.CardName);
 
         Group.RemoveCard(this);
         newGroup.AddCard(this);

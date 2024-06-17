@@ -79,7 +79,7 @@ public class CoinFarmCard : Card
 
         CardDataSO cardData = CardConfig.instance.GetCardData(CardType.Coin);
 
-        StackableCard card = GameFactory.instance.GetStackableCard(spawnPosition, MainTransform.parent, cardData.CardName);
+        StackableCard card = GameCardSpawner.instance.GetStackableCard(spawnPosition, MainTransform.parent, cardData.CardName);
         card.Render.sortingLayerID = SortingLayer.NameToID("Coin");
         card.CardDataSO = cardData;
         m_GameManager.Farm.OnCoinIncrease?.Invoke();

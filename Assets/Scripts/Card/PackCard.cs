@@ -73,7 +73,7 @@ public class PackCard : Card
 
         CardDataSO selectedCard = GetRandomContent();
 
-        StackableCard card = GameFactory.instance.GetStackableCard(spawnPosition, MainTransform.parent, selectedCard.CardName);
+        StackableCard card = GameCardSpawner.instance.GetStackableCard(spawnPosition, MainTransform.parent, selectedCard.CardName);
         card.CardDataSO = selectedCard;
     }
 

@@ -2,13 +2,13 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class GameFactory : MonoBehaviour
+public class GameCardSpawner : MonoBehaviour
 {
     public GameObject BaseCard;
     public GameObject BaseStackableCard;
     public GameObject BasePackCard;
 
-    public static GameFactory instance;
+    public static GameCardSpawner instance;
 
     private void Awake()
     {

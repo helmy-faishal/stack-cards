@@ -18,6 +18,7 @@ public class AudioManager : MonoBehaviour
     [SerializeField] Sound[] _musicSounds, _sfxSounds;
     string _currentMusicName;
 
+    AudioData _audioData;
 
     public static AudioManager Instance;
 
@@ -31,6 +32,14 @@ public class AudioManager : MonoBehaviour
 
         Instance = this;
         DontDestroyOnLoad(gameObject);
+    }
+
+    private void Start()
+    {
+        _audioData = new AudioData();
+        _audioData.LoadAudioData();
+        SetAudioMuted(_audioData.IsMute);
+        SetAudioVolume(_audioData.Volume);
     }
 
     public void PlayMusic(string name)
@@ -60,5 +69,17 @@ public class AudioManager : MonoBehaviour
         }
 
         _sfxSource.PlayOneShot(s.clip);
+    }
+
+    public void SetAudioVolume(float volume)
+    {
+        _musicSource.volume = volume;
+        _sfxSource.volume = volume;
+    }
+
+    public void SetAudioMuted(bool mute)
+    {
+        _musicSource.mute = mute;
+        _sfxSource.mute = mute;
     }
 }

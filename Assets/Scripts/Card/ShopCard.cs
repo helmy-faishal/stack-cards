@@ -133,7 +133,7 @@ public class ShopCard : Card
         foreach (var item in itemPurchase)
         {
             Vector3 position = GameUtility.GetRandomScatterPosition(transform.position, GameConfig.instance.MaxSpawnRadius);
-            PackCard packCard = GameFactory.instance.GetPackCard(position, MainTransform.parent, item.pack.CardName);
+            PackCard packCard = GameCardSpawner.instance.GetPackCard(position, MainTransform.parent, item.pack.CardName);
             packCard.CardDataSO = item.pack;
             m_GameManager.TotalPackCard += 1;
         }
